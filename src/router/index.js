@@ -3,7 +3,7 @@ import VueRouter from 'vue-router'
 import Login from "../components/Login.vue"
 import Home from "../components/Home.vue"
 Vue.use(VueRouter)
-
+//啛啛喳喳错错错错
 const routes = [
   {
     path: '/',
