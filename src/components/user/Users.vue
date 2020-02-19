@@ -5,36 +5,44 @@
         <el-breadcrumb-item>用户管理</el-breadcrumb-item>
         <el-breadcrumb-item>用户列表</el-breadcrumb-item>
       </el-breadcrumb>
-<el-card class="box-card">
-    <el-row :gutter="20">
-        <el-col :span="8">
-            <el-input v-model="queryParams.query" clearable @change="getUserList" @input="getUserList" @clear="getUserList" placeholder="请输入查询关键字" class="input-with-select">
-                <el-button slot="append" icon="el-icon-search" @click="getUserList" ></el-button>
-            </el-input>
-        </el-col>
-        <el-col :span="5">
-            <el-button type="primary" @click="dialogVisible=true">添加用户</el-button>
-        </el-col>
-    </el-row>
-    <el-table :data="userList" border style="width: 100%" stripe>
-        <el-table-column type="index" label="序号"></el-table-column>
-        <el-table-column prop="username" label="姓名" width="180">
-        </el-table-column>
-        <el-table-column prop="email" label="邮箱" width="180">
-        </el-table-column>
-        <el-table-column prop="mobile" label="电话" width="180"></el-table-column>
-        <el-table-column prop="role_name" label="角色" width="180">   
-        </el-table-column>
-        <el-table-column prop="mg_state" label="状态" width="100"> 
-            <template slot-scope="scope"><!--作用域插槽 -->
+      <el-card class="box-card">
+        <el-row :gutter="20">
+            <el-col :span="8">
+                <el-input v-model="queryParams.query" clearable @change="getUserList" @input="getUserList" @clear="getUserList" placeholder="请输入查询关键字" class="input-with-select">
+                    <el-button slot="append" icon="el-icon-search" @click="getUserList" ></el-button>
+                </el-input>
+            </el-col>
+             <el-col :span="5">
+                  <el-button type="primary" @click="dialogVisible=true">添加用户</el-button>
+             </el-col>
+         </el-row>
+        <el-table 
+           :data="userList" 
+           border 
+           style="width: 100%" 
+           stripe
+           v-loading = "pictLoading"
+           element-loading-text = "数据正在加载中"
+           element-loading-spinner = "el-icon-loading"
+       >
+            <el-table-column type="index" label="序号"></el-table-column>
+            <el-table-column prop="username" label="姓名" width="180">
+            </el-table-column>
+            <el-table-column prop="email" label="邮箱" width="180">
+            </el-table-column>
+            <el-table-column prop="mobile" label="电话" width="180"></el-table-column>
+            <el-table-column prop="role_name" label="角色" width="180">   
+            </el-table-column>
+            <el-table-column prop="mg_state" label="状态" width="100"> 
+              <template slot-scope="scope"><!--作用域插槽 -->
                 <el-switch @change="userStateChange(scope.row)"
                    v-model="scope.row.mg_state"
                 >
                 </el-switch>
 
-            </template>  
-        </el-table-column>
-        <el-table-column label="操作" width="180">   
+              </template>  
+           </el-table-column>
+           <el-table-column label="操作" width="180">   
             <template slot-scope="scope">
                <el-tooltip class="item" effect="dark" content="编辑" placement="top" :enterable="false">
                   <el-button size="mini" type="primary" icon="el-icon-edit" @click="editUserBtn(scope.row.id)"></el-button>
@@ -44,7 +52,7 @@
                </el-tooltip>
                
                <el-tooltip class="item" effect="dark" content="分配角色" placement="top" :enterable="false">
-                   <el-button size="mini" type="warning" icon="el-icon-setting"></el-button>
+                   <el-button size="mini" type="warning" icon="el-icon-setting" @click="setRole(scope.row)"></el-button>
                </el-tooltip>
             </template>
         </el-table-column>
@@ -59,6 +67,7 @@
       :total="total">
     </el-pagination>
 </el-card>
+<!--添加用户对话框-->
 <el-dialog
   title="添加用户"
   @close="addDialogClose"
@@ -85,7 +94,7 @@
   </span>
 </el-dialog>
 
-
+<!--修改用户对话框-->
 <el-dialog
   title="修改用户"
   @close="editDialogClose"
@@ -108,11 +117,39 @@
     <el-button type="primary" @click="editUser">确 定</el-button>
   </span>
 </el-dialog>
+<!--分配角色对话框-->>
+<el-dialog
+  title="分配角色"
+  :visible.sync="setRoleDialogVisible"
+  width="50%"
+  @close="closeRoleDialog"
+>
+  <div>
+      <p>当前的用户：{{currentUserInfo.username}}</p>
+      <p>当前的角色：{{currentUserInfo.role_name}}</p>
+      <p>分配新角色：
+           <el-select v-model="selectedRole" placeholder="请选择">
+              <el-option
+               v-for="item in rolesList"
+               :key="item.id"
+               :label="item.roleName"
+               :value="item.id">
+             </el-option>
+           </el-select>
+      </p>
+  </div>
+  <span slot="footer" class="dialog-footer">
+    <el-button @click="setRoleDialogVisible = false">取 消</el-button>
+    <el-button type="primary" @click="saveRole">确 定</el-button>
+  </span>
+</el-dialog>
+
 </div>
 </template>
 <script>
     export default {
         data() {
+            //自定义邮箱验证规则
             let checkEmail = (rule,value,callback)=>{
                const emailReg = /[A-Za-z0-9\u4e00-\u9fa5]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/;
                if(!emailReg.test(value)){
@@ -121,6 +158,7 @@
                   return callback();
                }
             };
+            //自定义手机验证规则
             let checkMobile = (rule,value,callback)=>{
                 const mobileReg = /^1([38][0-9]|4[579]|5[0-3,5-9]|6[6]|7[0135678]|9[89])\d{8}$/;
                 if(!mobileReg.test(value)){
@@ -130,13 +168,17 @@
                 }
             }
             return {
+                //请求用户参数
                 queryParams: {
                     query: "",
                     pagenum: 1,
                     pagesize:3 
                 },
+                //用户数据列表
                 userList: [],
+                //总数据条数
                 total: 0,
+                pictLoading:null,
                 dialogVisible:false,//控制添加用户对话框的显示与隐
                 //添加用户表单的校验规则
                 addUserFormRules:{
@@ -180,7 +222,15 @@
                         { required: true, message: '请输入手机号码', trigger: 'blur' },
                         {validator:checkMobile, trigger: 'blur' }
                    ]
-                } 
+                },
+                //控制分配角色对话框隐藏/显示
+                setRoleDialogVisible:false,
+                //当前分配新角色的用户信息
+                currentUserInfo:{},
+                //角色列表
+                rolesList:[],
+                //下拉选择框绑定的值
+                selectedRole:""
             };
         },
         created() {
@@ -188,14 +238,17 @@
         },
         methods: {
             async getUserList() {
+                this.pictLoading = true;
                 let {
                     data: res
                 } = await this.$http.get("users", {
                     params: this.queryParams
                 });
                 if (res.meta.status != 200) {
+                    this.pictLoading = false;
                     this.$message.error("请求用户列表失败");
                 } else {
+                    this.pictLoading = false;
                     this.userList = res.data.users;
                     this.total = res.data.total;
                 }
@@ -210,7 +263,6 @@
             },
             async userStateChange(userInfo){
              let {data:res} = await this.$http.put(`users/${userInfo.id}/state/${userInfo.mg_state}`)
-             console.log(res)
              if(res.meta.status!=200){
                  userInfo.mg_state = !userInfo.mg_state;
                  return this.$message.error(res.meta.msg);
@@ -289,6 +341,35 @@
                         this.getUserList();
                     }
                  }
+            },
+            //分配角色按钮点击监听程序
+            async setRole(user){
+              this.currentUserInfo = user;
+              //获取角色列表
+              let {data:res} = await this.$http.get("roles");
+              if(res.meta.status!=200){
+                  return;
+              }else{
+                 this.rolesList = res.data
+              }
+              this.setRoleDialogVisible=true; 
+            },
+            //监听关闭分配角色对话框事件
+            closeRoleDialog(){
+               this.selectedRole = "",
+               this.currentUserInfo = {}
+            },
+            async saveRole(){
+              let {data:res} = await this.$http.put(`users/${this.currentUserInfo.id}/role`,{rid:this.selectedRole})
+              if(res.meta.status!=200){
+                  return this.$message.error("设置角色失败")
+              }else{
+                  this.setRoleDialogVisible = false;
+                //   this.currentUserInfo = {};
+                //   this.selectedRole="";
+                  this.getUserList();
+                  this.$message.success(res.meta.msg);
+              }
             }
         }
     };
